@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f0a500">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="작업일보">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>일일 작업일보</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --accent:#f0a500; --accent2:#e06c00; --text:#e6edf3; --muted:#7d8590;
+  --green:#3fb950; --red:#f85149; --blue:#58a6ff; --purple:#a78bfa; --r:8px;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;overscroll-behavior:none;}
+
+.header{background:var(--surface);border-bottom:2px solid var(--accent);padding:calc(var(--safe-top)+12px) 16px 12px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;}
+.header-title{font-size:16px;font-weight:700;color:var(--accent);}
+.header-sub{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;padding-bottom:var(--safe-bot);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0;cursor:pointer;color:var(--muted);font-size:10px;gap:3px;}
+.nav-item .ni{font-size:19px;}
+.nav-item.active{color:var(--accent);}
+.nav-item.active .nl{font-weight:700;}
+
+.scroll-area{padding:14px 14px calc(80px + var(--safe-bot));}
+.page{display:none;} .page.active{display:block;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px;}
+.card-title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+.form-row{margin-bottom:10px;}
+.form-row label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500;}
+.req{color:var(--red);}
+input[type="text"],input[type="date"],input[type="number"],input[type="month"],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:10px 12px;font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+select option{background:var(--surface2);}
+textarea{resize:none;min-height:90px;line-height:1.7;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+.weather-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.w-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 4px;text-align:center;cursor:pointer;transition:all 0.15s;}
+.w-item.sel{border-color:var(--accent);background:rgba(240,165,0,0.12);}
+.w-item .em{font-size:22px;} .w-item .lb{font-size:10px;color:var(--muted);margin-top:3px;}
+
+.wrow-header{display:grid;grid-template-columns:90px 70px 54px 80px 30px;gap:4px;margin-bottom:4px;}
+.wrow-header span{font-size:10px;color:var(--muted);text-align:center;}
+.wrow-header span:first-child{text-align:left;}
+.wrow{display:grid;grid-template-columns:90px 70px 54px 80px 30px;gap:4px;align-items:center;margin-bottom:6px;}
+.wrow input{margin:0;font-size:13px;padding:8px 6px;}
+.erow{display:grid;grid-template-columns:1fr 70px 30px;gap:5px;align-items:center;margin-bottom:6px;}
+.erow input{margin:0;font-size:14px;padding:9px 8px;}
+.rm-btn{background:var(--red);border:none;color:#fff;border-radius:6px;width:30px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.total-box{background:var(--surface2);border:1px solid var(--accent);border-radius:var(--r);padding:8px 12px;font-size:13px;font-weight:700;color:var(--accent);text-align:right;margin-top:6px;}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Noto Sans KR',sans-serif;transition:opacity 0.15s;}
+.btn:active{opacity:0.75;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-success{background:var(--green);color:#000;}
+.btn-purple{background:#7c3aed;color:#fff;}
+.btn-sm{padding:7px 12px;font-size:12px;}
+.btn-add{background:var(--surface2);border:1px dashed var(--border);color:var(--muted);width:100%;margin-top:4px;padding:9px;font-size:13px;border-radius:var(--r);cursor:pointer;}
+
+.log-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:10px;cursor:pointer;}
+.log-item:active{border-color:var(--accent);}
+.li-date{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);font-weight:700;}
+.li-site{font-size:14px;font-weight:600;margin:4px 0;}
+.li-meta{display:flex;flex-wrap:wrap;gap:6px;}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;}
+.b-blue{background:rgba(88,166,255,.15);color:var(--blue);}
+.b-green{background:rgba(63,185,80,.15);color:var(--green);}
+.b-yellow{background:rgba(240,165,0,.15);color:var(--accent);}
+.b-purple{background:rgba(167,139,250,.15);color:var(--purple);}
+
+.search-wrap{position:relative;margin-bottom:10px;}
+.search-wrap input{padding-left:36px;}
+.search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);}
+
+.filter-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none;}
+.filter-row::-webkit-scrollbar{display:none;}
+.chip{padding:5px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--muted);}
+.chip.active{background:rgba(240,165,0,.15);border-color:var(--accent);color:var(--accent);}
+
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;}
+.stat-val{font-size:26px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace;}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-ico{font-size:44px;margin-bottom:12px;}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border-top:2px solid var(--accent);border-radius:16px 16px 0 0;padding:18px 14px;padding-bottom:calc(18px + var(--safe-bot));width:100%;max-height:92vh;overflow-y:auto;}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.modal-title{font-size:15px;font-weight:700;}
+.close-btn{background:var(--surface2);border:none;color:var(--muted);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;}
+.d-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.d-row:last-child{border:none;}
+.d-lbl{color:var(--muted);flex-shrink:0;}
+.d-val{font-weight:600;text-align:right;max-width:68%;}
+.d-sec{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin:12px 0 6px;}
+.d-box{background:var(--surface2);border-radius:6px;padding:10px;font-size:13px;white-space:pre-wrap;line-height:1.7;}
+
+/* ── 출결 필터 영역 ── */
+.att-filter{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px;}
+.att-filter-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.att-filter-row:last-child{margin-bottom:0;}
+.att-filter label{font-size:12px;color:var(--muted);font-weight:600;width:36px;flex-shrink:0;}
+.att-filter select,.att-filter input{flex:1;font-size:14px;padding:9px 10px;}
+
+/* ── 출결 결과 헤더 ── */
+.att-result-header{background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.3);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.att-result-title{font-size:13px;font-weight:700;color:var(--accent);}
+.att-result-sub{font-size:11px;color:var(--muted);}
+
+/* ── 출결 테이블 ── */
+.att-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;}
+.att-table th{background:var(--surface2);border:1px solid var(--border);padding:7px 5px;text-align:center;font-size:11px;color:var(--muted);font-weight:600;}
+.att-table th:first-child{text-align:left;}
+.att-table td{border:1px solid var(--border);padding:7px 5px;text-align:center;font-size:12px;}
+.att-table td:first-child{text-align:left;font-weight:600;}
+.att-table td:nth-child(2){color:var(--muted);font-size:11px;}
+.att-foot td{background:rgba(240,165,0,.08);font-weight:700;color:var(--accent);border-top:2px solid var(--accent) !important;}
+.att-foot td:last-child{color:var(--green);}
+.att-sub{font-size:11px;color:var(--muted);margin-top:5px;text-align:right;}
+
+/* ── 일별 현황 ── */
+.day-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.day-row:last-child{border:none;}
+.day-date{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;}
+.day-site{color:var(--muted);font-size:11px;margin-top:2px;}
+.day-right{text-align:right;}
+.day-names{color:var(--muted);font-size:10px;margin-top:3px;max-width:140px;}
+
+/* ── 현장 요약 카드 ── */
+.site-summary{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;}
+.site-summary-name{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text);}
+.site-summary-meta{display:flex;flex-wrap:wrap;gap:6px;}
+
+.merge-zone{border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;color:var(--muted);margin-bottom:10px;cursor:pointer;}
+.merge-zone.drag{border-color:var(--accent);color:var(--accent);}
+.guide-step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+.guide-step:last-child{border:none;}
+.guide-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.guide-text{font-size:13px;line-height:1.6;}
+.guide-text strong{color:var(--accent);}
+
+.toast{position:fixed;bottom:calc(70px + var(--safe-bot));left:50%;transform:translateX(-50%) translateY(60px);background:var(--green);color:#000;padding:10px 20px;border-radius:20px;font-weight:700;font-size:13px;z-index:999;transition:transform 0.3s;white-space:nowrap;}
+.toast.err{background:var(--red);color:#fff;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+@media print {
+  body>*:not(#printArea){display:none!important;}
+  #printArea{display:block!important;position:static!important;}
+  @page{size:A4 portrait;margin:15mm;}
+}
+#printArea{display:none;font-family:'Noto Sans KR',sans-serif;font-size:10pt;color:#000;background:#fff;line-height:1.5;}
+.pt-title{text-align:center;font-size:18pt;font-weight:900;letter-spacing:6px;margin-bottom:14px;border-bottom:3px double #000;padding-bottom:10px;}
+.pt-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:9.5pt;}
+.pt-table th,.pt-table td{border:1px solid #444;padding:5px 7px;vertical-align:middle;}
+.pt-table th{background:#efefef;font-weight:700;text-align:center;white-space:nowrap;}
+.pt-section{font-weight:700;font-size:10pt;background:#e0e0e0;padding:4px 8px;border:1px solid #444;border-bottom:none;margin-top:10px;}
+.pt-content{border:1px solid #444;padding:8px;min-height:50px;font-size:9.5pt;white-space:pre-wrap;line-height:1.7;}
+.pt-sign{display:flex;justify-content:flex-end;gap:12px;margin-top:20px;}
+.pt-sign-box{border:1px solid #444;width:72px;text-align:center;}
+.pt-sign-top{background:#efefef;font-weight:700;padding:3px;font-size:9pt;border-bottom:1px solid #444;}
+.pt-sign-space{height:50px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">📋 일일 작업일보</div>
+    <div class="header-sub" id="hDate"></div>
+  </div>
+  <button class="btn btn-secondary btn-sm" onclick="exportAll()">📥 엑셀</button>
+</div>
+
+<div class="scroll-area">
+
+  <!-- ===== 작성 ===== -->
+  <div class="page active" id="p-write">
+    <div class="card">
+      <div class="card-title">📌 기본 정보</div>
+      <div class="grid-2">
+        <div class="form-row"><label>날짜 <span class="req">*</span></label><input type="date" id="iDate"></div>
+        <div class="form-row"><label>요일</label><input type="text" id="iDay" readonly></div>
+      </div>
+      <div class="form-row"><label>공사명 <span class="req">*</span></label><input type="text" id="iSite" placeholder="예) 청주시 CCTV 설치공사"></div>
+      <div class="grid-2">
+        <div class="form-row"><label>발주처</label><input type="text" id="iClient" placeholder="예) 청주시청"></div>
+        <div class="form-row"><label>현장대리인</label><input type="text" id="iManager" placeholder="성명"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🌤 날씨</div>
+      <div class="grid-2">
+        <div class="form-row"><label>오전</label>
+          <div class="weather-row">
+            <div class="w-item" data-g="am" data-v="맑음"><div class="em">☀️</div><div class="lb">맑음</div></div>
+            <div class="w-item" data-g="am" data-v="흐림"><div class="em">⛅</div><div class="lb">흐림</div></div>
+            <div class="w-item" data-g="am" data-v="비"><div class="em">🌧</div><div class="lb">비</div></div>
+            <div class="w-item" data-g="am" data-v="눈"><div class="em">❄️</div><div class="lb">눈</div></div>
+          </div>
+        </div>
+        <div class="form-row"><label>오후</label>
+          <div class="weather-row">
+            <div class="w-item" data-g="pm" data-v="맑음"><div class="em">☀️</div><div class="lb">맑음</div></div>
+            <div class="w-item" data-g="pm" data-v="흐림"><div class="em">⛅</div><div class="lb">흐림</div></div>
+            <div class="w-item" data-g="pm" data-v="비"><div class="em">🌧</div><div class="lb">비</div></div>
+            <div class="w-item" data-g="pm" data-v="눈"><div class="em">❄️</div><div class="lb">눈</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-row"><label>최저기온 ℃</label><input type="number" id="iTlo" placeholder="0"></div>
+        <div class="form-row"><label>최고기온 ℃</label><input type="number" id="iThi" placeholder="0"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👷 작업인원</div>
+      <div class="wrow-header">
+        <span>직종</span><span>이름</span><span>인원</span><span>단가(원)</span><span></span>
+      </div>
+      <div id="wList"></div>
+      <button class="btn-add" onclick="addW()">+ 직종 추가</button>
+      <div class="total-box" id="wTotal">총 인원: 0명 | 노무비: 0원</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔧 장비/자재 투입</div>
+      <div id="eList"></div>
+      <button class="btn-add" onclick="addE()">+ 장비/자재 추가</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 작업내용</div>
+      <textarea id="iWork" placeholder="금일 작업내용&#10;예) 1. 광케이블 포설 150m&#10;2. CCTV 카메라 설치 3대"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⏭ 익일 작업계획</div>
+      <textarea id="iNext" placeholder="내일 예정 작업내용"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚠️ 특이사항 / 안전사항</div>
+      <div class="form-row"><label>특이사항</label><textarea id="iSpec" placeholder="민원, 지시사항, 기타"></textarea></div>
+      <div class="form-row"><label>안전사항</label><textarea id="iSafe" placeholder="안전교육, 위험요소, 조치사항"></textarea></div>
+      <div class="form-row"><label>공사 진행률 (%)</label><input type="number" id="iProg" min="0" max="100" placeholder="0"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:8px;">
+      <button class="btn btn-secondary" style="flex:1" onclick="clearForm()">🗑 초기화</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveLog()">💾 저장</button>
+    </div>
+  </div>
+
+  <!-- ===== 목록 ===== -->
+  <div class="page" id="p-list">
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input type="text" id="sInput" placeholder="공사명, 날짜, 이름 검색..." oninput="renderList()">
+    </div>
+    <div class="filter-row" id="fRow"><div class="chip active" onclick="setF(this,'all')">전체</div></div>
+    <div id="logList"></div>
+  </div>
+
+  <!-- ===== 출결 ===== -->
+  <div class="page" id="p-attend">
+
+    <!-- 필터 영역 -->
+    <div class="att-filter">
+      <div class="att-filter-row">
+        <label>월</label>
+        <input type="month" id="attMonth">
+      </div>
+      <div class="att-filter-row">
+        <label>현장</label>
+        <select id="attSite">
+          <option value="all">전체 현장</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary" style="flex:2" onclick="renderAttend()">🔍 조회</button>
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="exportAttendExcel()">📥 엑셀</button>
+      </div>
+    </div>
+
+    <div id="attendBody">
+      <div class="empty"><div class="empty-ico">👷</div>월과 현장을 선택 후 조회하세요</div>
+    </div>
+  </div>
+
+  <!-- ===== 통계 ===== -->
+  <div class="page" id="p-stats">
+    <div id="statsEl"></div>
+  </div>
+
+  <!-- ===== 관리 ===== -->
+  <div class="page" id="p-manage">
+    <div class="card">
+      <div class="card-title">📤 데이터 내보내기</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-success" onclick="exportAll()">📥 전체 엑셀 다운로드</button>
+        <button class="btn btn-secondary" onclick="exportJSON()">💾 백업 파일 저장 (.json)</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;">💡 기기 이전 시 <strong style="color:var(--accent)">백업 저장 → 새 기기 불러오기</strong></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📥 데이터 가져오기 / 통합</div>
+      <div class="merge-zone" id="mergeZone" onclick="document.getElementById('mergeInput').click()">
+        <input type="file" id="mergeInput" accept=".json" style="display:none" onchange="importJSON(event)">
+        <div style="font-size:30px;margin-bottom:8px;">📂</div>
+        <div style="font-weight:600;margin-bottom:4px;">백업 파일 불러오기</div>
+        <div style="font-size:12px;">(.json 파일 선택)</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">※ 날짜+공사명 기준 <strong style="color:var(--accent)">중복 없이 합쳐집니다</strong></div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">⚠️ 전체 초기화</div>
+        <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 모든 데이터 삭제</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">삭제 전 반드시 백업하세요</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📱 앱 설치 안내</div>
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px;">🤖 Android (크롬)</div>
+      <div class="guide-step"><div class="guide-num">1</div><div class="guide-text">크롬 우측 상단 <strong>⋮ 메뉴</strong> 터치</div></div>
+      <div class="guide-step"><div class="guide-num">2</div><div class="guide-text"><strong>"홈 화면에 추가"</strong> → 추가</div></div>
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin:12px 0 8px;">🍎 iPhone (Safari)</div>
+      <div class="guide-step"><div class="guide-num">1</div><div class="guide-text">하단 <strong>공유 □↑</strong> 버튼 터치</div></div>
+      <div class="guide-step"><div class="guide-num">2</div><div class="guide-text"><strong>"홈 화면에 추가"</strong> → 추가</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="goTab('write',this)"><div class="ni">✏️</div><div class="nl">작성</div></div>
+  <div class="nav-item" onclick="goTab('list',this)"><div class="ni">📋</div><div class="nl">목록</div></div>
+  <div class="nav-item" onclick="goTab('attend',this)"><div class="ni">👷</div><div class="nl">출결</div></div>
+  <div class="nav-item" onclick="goTab('stats',this)"><div class="ni">📊</div><div class="nl">통계</div></div>
+  <div class="nav-item" onclick="goTab('manage',this)"><div class="ni">⚙️</div><div class="nl">관리</div></div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">📋 상세보기</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn btn-sm btn-purple" onclick="printLog()">🖨️ 출력</button>
+        <button class="btn btn-sm btn-secondary" onclick="exportOne()">📥 엑셀</button>
+        <button class="btn btn-sm btn-danger" onclick="delLog()">삭제</button>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+let logs = JSON.parse(localStorage.getItem('wl_logs')||'[]');
+let wAm='', wPm='', curIdx=-1, curF='all', wc=0, ec=0;
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('iDate').value = today;
+  document.getElementById('hDate').textContent = fmt(today);
+  document.getElementById('attMonth').value = today.slice(0,7);
+  updDay();
+  addW('통신공','',1,220000);
+  addE();
+  buildChips();
+  buildSiteSelect();
+  renderList();
+  renderStats();
+  document.getElementById('iDate').addEventListener('change', updDay);
+  document.querySelectorAll('.w-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const g=el.dataset.g;
+      document.querySelectorAll(`.w-item[data-g="${g}"]`).forEach(x=>x.classList.remove('sel'));
+      el.classList.add('sel');
+      if(g==='am') wAm=el.dataset.v; else wPm=el.dataset.v;
+    });
+  });
+  const mz=document.getElementById('mergeZone');
+  mz.addEventListener('dragover',e=>{e.preventDefault();mz.classList.add('drag');});
+  mz.addEventListener('dragleave',()=>mz.classList.remove('drag'));
+  mz.addEventListener('drop',e=>{e.preventDefault();mz.classList.remove('drag');if(e.dataTransfer.files[0])readJSON(e.dataTransfer.files[0]);});
+});
+
+// ── 현장 select 빌드 ──
+function buildSiteSelect(){
+  const sel = document.getElementById('attSite');
+  const cur = sel.value;
+  const sites = [...new Set(logs.map(l=>l.site))].sort();
+  sel.innerHTML = '<option value="all">전체 현장</option>';
+  sites.forEach(s=>{
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
+  if(cur) sel.value = cur;
+}
+
+function goTab(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  if(name==='list'){buildChips();renderList();}
+  if(name==='stats') renderStats();
+  if(name==='attend'){buildSiteSelect();}
+}
+
+function updDay(){
+  const d=document.getElementById('iDate').value;
+  if(!d) return;
+  document.getElementById('iDay').value=['일','월','화','수','목','금','토'][new Date(d).getDay()]+'요일';
+}
+
+function addW(job='',name='',cnt=1,price=0){
+  const id=++wc;
+  const d=document.createElement('div');
+  d.className='wrow'; d.id='wr'+id;
+  d.innerHTML=`
+    <input type="text" placeholder="직종명" value="${job}" class="wj" oninput="calcW()">
+    <input type="text" placeholder="이름" value="${name}" class="wname">
+    <input type="number" placeholder="인원" value="${cnt}" min="0" class="wn" oninput="calcW()">
+    <input type="number" placeholder="단가" value="${price}" min="0" class="wp" oninput="calcW()">
+    <button class="rm-btn" onclick="rm('wr${id}')">−</button>`;
+  document.getElementById('wList').appendChild(d);
+  calcW();
+}
+function calcW(){
+  let n=0,c=0;
+  document.querySelectorAll('.wrow').forEach(r=>{
+    const cnt=parseFloat(r.querySelector('.wn').value)||0;
+    const p=parseFloat(r.querySelector('.wp').value)||0;
+    n+=cnt; c+=cnt*p;
+  });
+  document.getElementById('wTotal').textContent=`총 인원: ${n}명 | 노무비: ${c.toLocaleString()}원`;
+}
+
+function addE(name='',cnt=''){
+  const id=++ec;
+  const d=document.createElement('div');
+  d.className='erow'; d.id='eq'+id;
+  d.innerHTML=`<input type="text" placeholder="장비명/자재명" value="${name}">
+    <input type="number" placeholder="수량" value="${cnt}" min="0">
+    <button class="rm-btn" onclick="rm('eq${id}')">−</button>`;
+  document.getElementById('eList').appendChild(d);
+}
+function rm(id){const e=document.getElementById(id);if(e){e.remove();calcW();}}
+
+function saveLog(){
+  const date=document.getElementById('iDate').value;
+  const site=document.getElementById('iSite').value.trim();
+  if(!date||!site){toast('날짜와 공사명은 필수입니다',true);return;}
+  const workers=[];
+  document.querySelectorAll('.wrow').forEach(r=>{
+    const j=r.querySelector('.wj').value.trim();
+    const nm=r.querySelector('.wname').value.trim();
+    const n=parseFloat(r.querySelector('.wn').value)||0;
+    const p=parseFloat(r.querySelector('.wp').value)||0;
+    if(j||nm||n) workers.push({job:j,name:nm,cnt:n,price:p});
+  });
+  const equips=[];
+  document.querySelectorAll('.erow').forEach(r=>{
+    const ins=r.querySelectorAll('input');
+    if(ins[0].value.trim()) equips.push({name:ins[0].value.trim(),cnt:ins[1].value});
+  });
+  const log={id:Date.now(),date,day:document.getElementById('iDay').value,site,
+    client:document.getElementById('iClient').value.trim(),
+    manager:document.getElementById('iManager').value.trim(),
+    wAm,wPm,tLo:document.getElementById('iTlo').value,tHi:document.getElementById('iThi').value,
+    workers,equips,
+    work:document.getElementById('iWork').value.trim(),
+    next:document.getElementById('iNext').value.trim(),
+    spec:document.getElementById('iSpec').value.trim(),
+    safe:document.getElementById('iSafe').value.trim(),
+    prog:document.getElementById('iProg').value};
+  logs.unshift(log);
+  localStorage.setItem('wl_logs',JSON.stringify(logs));
+  toast('✅ 저장 완료!');
+  buildChips(); buildSiteSelect(); renderStats();
+}
+
+function renderList(){
+  const q=(document.getElementById('sInput').value||'').toLowerCase();
+  let data=logs;
+  if(curF!=='all') data=data.filter(l=>l.site===curF);
+  if(q) data=data.filter(l=>(l.site+l.work+l.date+l.client+(l.workers||[]).map(w=>w.name).join('')).toLowerCase().includes(q));
+  const el=document.getElementById('logList');
+  if(!data.length){el.innerHTML=`<div class="empty"><div class="empty-ico">📭</div>저장된 일보가 없습니다</div>`;return;}
+  el.innerHTML=data.map(log=>{
+    const ri=logs.indexOf(log);
+    const tn=log.workers.reduce((s,w)=>s+w.cnt,0);
+    const tc=log.workers.reduce((s,w)=>s+(w.cnt*(w.price||0)),0);
+    const names=log.workers.filter(w=>w.name).map(w=>w.name).join(', ');
+    return `<div class="log-item" onclick="openDetail(${ri})">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="li-date">${log.date} ${log.day||''}</div>
+        ${log.prog?`<span class="badge b-yellow">${log.prog}%</span>`:''}
+      </div>
+      <div class="li-site">${log.site}</div>
+      <div class="li-meta">
+        <span class="badge b-blue">👷 ${tn}명</span>
+        ${tc?`<span class="badge b-green">💰 ${tc.toLocaleString()}원</span>`:''}
+        ${log.wAm?`<span class="badge b-yellow">${log.wAm}/${log.wPm||'-'}</span>`:''}
+        ${names?`<span class="badge b-purple">👤 ${names.length>15?names.slice(0,15)+'…':names}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function buildChips(){
+  const sites=[...new Set(logs.map(l=>l.site))];
+  const row=document.getElementById('fRow');
+  row.innerHTML=`<div class="chip active" onclick="setF(this,'all')">전체</div>`;
+  sites.forEach(s=>{
+    const c=document.createElement('div');c.className='chip';
+    c.textContent=s.length>10?s.slice(0,10)+'…':s;
+    c.onclick=()=>setF(c,s);row.appendChild(c);
+  });
+}
+function setF(el,v){curF=v;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderList();}
+
+// ── 출결 누계 (현장 필터 포함) ──
+function renderAttend(){
+  const month = document.getElementById('attMonth').value;
+  const site  = document.getElementById('attSite').value;
+  if(!month){toast('월을 선택하세요',true);return;}
+  const el = document.getElementById('attendBody');
+
+  // 필터
+  let filtered = logs.filter(l=>l.date.startsWith(month));
+  if(site !== 'all') filtered = filtered.filter(l=>l.site === site);
+
+  if(!filtered.length){
+    el.innerHTML=`<div class="empty"><div class="empty-ico">📭</div>해당 조건의 데이터가 없습니다</div>`;
+    return;
+  }
+
+  const ym = month.replace('-','년 ')+'월';
+  const siteLabel = site==='all'?'전체 현장':site;
+
+  // 현장 목록 (전체 조회 시 현장별 요약 포함)
+  const siteList = site==='all' ? [...new Set(filtered.map(l=>l.site))] : [site];
+
+  // 인원별 누계
+  const persons = {};
+  filtered.forEach(log=>{
+    log.workers.forEach(w=>{
+      const key=`${w.name||'(미입력)'}_${w.job||'(미입력)'}_${log.site}`;
+      if(!persons[key]) persons[key]={name:w.name||'(미입력)',job:w.job||'(미입력)',site:log.site,days:0,totalCnt:0,totalCost:0};
+      persons[key].days++;
+      persons[key].totalCnt+=w.cnt||0;
+      persons[key].totalCost+=(w.cnt||0)*(w.price||0);
+    });
+  });
+  const rows = Object.values(persons).sort((a,b)=>b.days-a.days);
+  const totalCost = rows.reduce((s,r)=>s+r.totalCost,0);
+  const totalDays = filtered.length;
+
+  let html = `
+    <div class="att-result-header">
+      <div>
+        <div class="att-result-title">${ym} · ${siteLabel}</div>
+        <div class="att-result-sub">작업일수 ${totalDays}일 | 총 노무비 ${totalCost.toLocaleString()}원</div>
+      </div>
+    </div>`;
+
+  // 전체 현장일 때 현장별 요약 먼저
+  if(site === 'all' && siteList.length > 1){
+    html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">📍 현장별 요약</div>`;
+    siteList.forEach(s=>{
+      const siteLogs = filtered.filter(l=>l.site===s);
+      const siteW = siteLogs.reduce((a,l)=>a+l.workers.reduce((b,w)=>b+w.cnt,0),0);
+      const siteC = siteLogs.reduce((a,l)=>a+l.workers.reduce((b,w)=>b+(w.cnt*(w.price||0)),0),0);
+      html += `<div class="site-summary">
+        <div class="site-summary-name">📌 ${s}</div>
+        <div class="site-summary-meta">
+          <span class="badge b-blue">📅 ${siteLogs.length}일</span>
+          <span class="badge b-green">👷 ${siteW}명</span>
+          <span class="badge b-yellow">💰 ${siteC.toLocaleString()}원</span>
+        </div>
+      </div>`;
+    });
+  }
+
+  // 인원별 누계 테이블
+  html += `
+    <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin:12px 0 8px;">👷 인원별 누계</div>
+    <table class="att-table">
+      <thead><tr>
+        <th style="text-align:left">이름</th>
+        <th>직종</th>
+        ${site==='all'?'<th>현장</th>':''}
+        <th>출근일수</th>
+        <th>인원계</th>
+        <th>노무비</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr>
+          <td>${r.name}</td>
+          <td style="color:var(--muted);font-size:11px">${r.job}</td>
+          ${site==='all'?`<td style="color:var(--muted);font-size:10px">${r.site.length>8?r.site.slice(0,8)+'…':r.site}</td>`:''}
+          <td style="color:var(--accent);font-weight:700">${r.days}일</td>
+          <td>${r.totalCnt}명</td>
+          <td style="color:var(--green)">${r.totalCost.toLocaleString()}</td>
+        </tr>`).join('')}
+        <tr class="att-foot">
+          <td colspan="${site==='all'?3:2}">합 계</td>
+          <td>${rows.reduce((s,r)=>s+r.days,0)}일</td>
+          <td>${rows.reduce((s,r)=>s+r.totalCnt,0)}명</td>
+          <td>${totalCost.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="att-sub">※ 동명이인은 직종으로 구분</div>`;
+
+  // 일별 현황
+  html += `<div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin:16px 0 8px;">📅 일별 출근 현황</div>`;
+  filtered.sort((a,b)=>a.date.localeCompare(b.date)).forEach(log=>{
+    const tn=log.workers.reduce((s,w)=>s+w.cnt,0);
+    const names=log.workers.filter(w=>w.name).map(w=>`${w.name}(${w.job||'-'})`).join(', ');
+    html += `<div class="day-row">
+      <div>
+        <div class="day-date">${log.date.slice(5)} ${log.day||''}</div>
+        ${site==='all'?`<div class="day-site">${log.site.length>16?log.site.slice(0,16)+'…':log.site}</div>`:''}
+      </div>
+      <div class="day-right">
+        <span class="badge b-blue">👷 ${tn}명</span>
+        ${names?`<div class="day-names">${names.length>22?names.slice(0,22)+'…':names}</div>`:''}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── 출결 엑셀 ──
+function exportAttendExcel(){
+  const month = document.getElementById('attMonth').value;
+  const site  = document.getElementById('attSite').value;
+  if(!month){toast('월을 선택하세요',true);return;}
+  let filtered = logs.filter(l=>l.date.startsWith(month));
+  if(site!=='all') filtered = filtered.filter(l=>l.site===site);
+  if(!filtered.length){toast('데이터가 없습니다',true);return;}
+
+  const wb = XLSX.utils.book_new();
+  const persons={};
+  filtered.forEach(log=>{
+    log.workers.forEach(w=>{
+      const key=`${w.name||'(미입력)'}_${w.job||'(미입력)'}_${log.site}`;
+      if(!persons[key]) persons[key]={name:w.name||'(미입력)',job:w.job||'(미입력)',site:log.site,days:0,totalCnt:0,totalCost:0};
+      persons[key].days++;
+      persons[key].totalCnt+=w.cnt||0;
+      persons[key].totalCost+=(w.cnt||0)*(w.price||0);
+    });
+  });
+
+  const s1=[['이름','직종','현장','출근일수','투입인원합계','노무비합계']];
+  Object.values(persons).forEach(r=>s1.push([r.name,r.job,r.site,r.days,r.totalCnt,r.totalCost]));
+  s1.push(['합계','','',Object.values(persons).reduce((s,r)=>s+r.days,0),Object.values(persons).reduce((s,r)=>s+r.totalCnt,0),Object.values(persons).reduce((s,r)=>s+r.totalCost,0)]);
+  const ws1=XLSX.utils.aoa_to_sheet(s1);
+  ws1['!cols']=[{wch:12},{wch:12},{wch:25},{wch:10},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws1,'인원별 누계');
+
+  const s2=[['날짜','요일','공사명','이름','직종','인원','단가','금액']];
+  filtered.sort((a,b)=>a.date.localeCompare(b.date)).forEach(log=>{
+    log.workers.forEach(w=>{
+      s2.push([log.date,log.day||'',log.site,w.name||'',w.job||'',w.cnt||0,w.price||0,(w.cnt||0)*(w.price||0)]);
+    });
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(s2);
+  ws2['!cols']=[{wch:12},{wch:6},{wch:25},{wch:10},{wch:12},{wch:8},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'일별 상세');
+
+  const siteLabel = site==='all'?'전체':site.slice(0,10);
+  XLSX.writeFile(wb,`출결누계_${month}_${siteLabel}.xlsx`);
+  toast('📥 출결 엑셀 저장 완료!');
+}
+
+// ── 상세보기 ──
+function openDetail(idx){
+  curIdx=idx;
+  const log=logs[idx];
+  const tn=log.workers.reduce((s,w)=>s+w.cnt,0);
+  const tc=log.workers.reduce((s,w)=>s+(w.cnt*(w.price||0)),0);
+  const wRows=log.workers.map(w=>`<tr>
+    <td style="padding:6px 4px;border:1px solid var(--border)">${w.job||'-'}</td>
+    <td style="padding:6px 4px;border:1px solid var(--border)">${w.name||'-'}</td>
+    <td style="padding:6px 4px;border:1px solid var(--border);text-align:center">${w.cnt}명</td>
+    <td style="padding:6px 4px;border:1px solid var(--border);text-align:right">${(w.price||0).toLocaleString()}</td>
+    <td style="padding:6px 4px;border:1px solid var(--border);text-align:right">${(w.cnt*(w.price||0)).toLocaleString()}</td>
+  </tr>`).join('');
+  const eRows=log.equips&&log.equips.length?log.equips.map(e=>`<li>${e.name}${e.cnt?' '+e.cnt+'개':''}</li>`).join(''):'<li style="color:var(--muted)">없음</li>';
+  document.getElementById('detailBody').innerHTML=`
+    <div class="d-row"><span class="d-lbl">날짜</span><span class="d-val">${log.date} (${log.day||''})</span></div>
+    <div class="d-row"><span class="d-lbl">공사명</span><span class="d-val">${log.site}</span></div>
+    <div class="d-row"><span class="d-lbl">발주처</span><span class="d-val">${log.client||'-'}</span></div>
+    <div class="d-row"><span class="d-lbl">현장대리인</span><span class="d-val">${log.manager||'-'}</span></div>
+    <div class="d-row"><span class="d-lbl">날씨</span><span class="d-val">오전 ${log.wAm||'-'} / 오후 ${log.wPm||'-'}</span></div>
+    <div class="d-row"><span class="d-lbl">기온</span><span class="d-val">${log.tLo||'-'}℃ ~ ${log.tHi||'-'}℃</span></div>
+    <div class="d-row"><span class="d-lbl">진행률</span><span class="d-val">${log.prog||0}%</span></div>
+    <div class="d-sec">👷 작업인원</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+      <tr style="background:var(--surface2)">
+        <th style="padding:6px 4px;border:1px solid var(--border);text-align:left">직종</th>
+        <th style="padding:6px 4px;border:1px solid var(--border);text-align:left">이름</th>
+        <th style="padding:6px 4px;border:1px solid var(--border)">인원</th>
+        <th style="padding:6px 4px;border:1px solid var(--border)">단가</th>
+        <th style="padding:6px 4px;border:1px solid var(--border)">금액</th>
+      </tr>
+      ${wRows}
+      <tr style="background:rgba(240,165,0,.1);font-weight:700">
+        <td colspan="2" style="padding:6px 4px;border:1px solid var(--border)">합계</td>
+        <td style="padding:6px 4px;border:1px solid var(--border);text-align:center">${tn}명</td>
+        <td style="padding:6px 4px;border:1px solid var(--border)"></td>
+        <td style="padding:6px 4px;border:1px solid var(--border);text-align:right;color:var(--accent)">${tc.toLocaleString()}</td>
+      </tr>
+    </table>
+    <div class="d-sec">🔧 장비/자재</div>
+    <ul style="list-style:disc;padding-left:18px;font-size:13px;margin-bottom:10px">${eRows}</ul>
+    <div class="d-sec">📝 작업내용</div>
+    <div class="d-box" style="margin-bottom:10px">${log.work||'없음'}</div>
+    <div class="d-sec">⏭ 익일계획</div>
+    <div class="d-box" style="margin-bottom:10px">${log.next||'없음'}</div>
+    <div class="d-sec">⚠️ 특이사항</div>
+    <div class="d-box" style="margin-bottom:10px">${log.spec||'없음'}</div>
+    <div class="d-sec">🦺 안전사항</div>
+    <div class="d-box">${log.safe||'없음'}</div>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeModal(){document.getElementById('detailModal').classList.remove('open');}
+document.getElementById('detailModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+function delLog(){
+  if(!confirm('삭제하시겠습니까?'))return;
+  logs.splice(curIdx,1);localStorage.setItem('wl_logs',JSON.stringify(logs));
+  closeModal();buildChips();buildSiteSelect();renderList();renderStats();toast('삭제되었습니다');
+}
+
+// ── 출력 ──
+function printLog(){
+  if(curIdx<0) return;
+  const log=logs[curIdx];
+  const tn=log.workers.reduce((s,w)=>s+w.cnt,0);
+  const tc=log.workers.reduce((s,w)=>s+(w.cnt*(w.price||0)),0);
+  const wRows=log.workers.map(w=>`<tr>
+    <td>${w.job||'-'}</td><td>${w.name||'-'}</td>
+    <td style="text-align:center">${w.cnt}명</td>
+    <td style="text-align:right">${(w.price||0).toLocaleString()}원</td>
+    <td style="text-align:right">${(w.cnt*(w.price||0)).toLocaleString()}원</td>
+  </tr>`).join('');
+  const equipsText=log.equips&&log.equips.length?log.equips.map(e=>`${e.name}${e.cnt?' '+e.cnt+'개':''}`).join(', '):'없음';
+  document.getElementById('printArea').innerHTML=`
+    <div class="pt-title">작 업 일 보</div>
+    <table class="pt-table">
+      <tr><th style="width:80px">공 사 명</th><td colspan="3">${log.site}</td></tr>
+      <tr><th>발 주 처</th><td>${log.client||'-'}</td><th style="width:80px">작성일자</th><td>${log.date} (${log.day||''})</td></tr>
+      <tr><th>현장대리인</th><td>${log.manager||'-'}</td><th>진행률</th><td>${log.prog||0}%</td></tr>
+      <tr><th>날 씨</th><td>오전:${log.wAm||'-'}/오후:${log.wPm||'-'}</td><th>기 온</th><td>최저${log.tLo||'-'}℃/최고${log.tHi||'-'}℃</td></tr>
+    </table>
+    <div class="pt-section">▶ 작업인원</div>
+    <table class="pt-table">
+      <tr><th>직종</th><th>이름</th><th style="width:50px">인원</th><th style="width:90px">단가</th><th style="width:90px">금액</th></tr>
+      ${wRows}
+      <tr><td colspan="2" style="font-weight:700">합 계</td><td style="text-align:center;font-weight:700">${tn}명</td><td></td><td style="text-align:right;font-weight:700">${tc.toLocaleString()}원</td></tr>
+    </table>
+    <div class="pt-section">▶ 장비 / 자재 투입</div>
+    <div class="pt-content" style="min-height:30px">${equipsText}</div>
+    <div class="pt-section">▶ 금일 작업내용</div>
+    <div class="pt-content">${(log.work||'없음').replace(/\n/g,'<br>')}</div>
+    <div class="pt-section">▶ 익일 작업계획</div>
+    <div class="pt-content">${(log.next||'없음').replace(/\n/g,'<br>')}</div>
+    <div class="pt-section">▶ 특이사항</div>
+    <div class="pt-content" style="min-height:35px">${(log.spec||'없음').replace(/\n/g,'<br>')}</div>
+    <div class="pt-section">▶ 안전사항</div>
+    <div class="pt-content" style="min-height:35px">${(log.safe||'없음').replace(/\n/g,'<br>')}</div>
+    <div class="pt-sign">
+      <div class="pt-sign-box"><div class="pt-sign-top">작성자</div><div class="pt-sign-space"></div></div>
+      <div class="pt-sign-box"><div class="pt-sign-top">현장대리인</div><div class="pt-sign-space"></div></div>
+      <div class="pt-sign-box"><div class="pt-sign-top">확 인</div><div class="pt-sign-space"></div></div>
+    </div>`;
+  document.getElementById('printArea').style.display='block';
+  setTimeout(()=>{window.print();setTimeout(()=>{document.getElementById('printArea').style.display='none';},500);},200);
+}
+
+// ── 통계 ──
+function renderStats(){
+  const el=document.getElementById('statsEl');
+  if(!logs.length){el.innerHTML=`<div class="empty"><div class="empty-ico">📊</div>저장된 일보가 없습니다</div>`;return;}
+  const td=logs.length;
+  const tw=logs.reduce((s,l)=>s+l.workers.reduce((a,w)=>a+w.cnt,0),0);
+  const tc=logs.reduce((s,l)=>s+l.workers.reduce((a,w)=>a+(w.cnt*(w.price||0)),0),0);
+  const bySite={};
+  logs.forEach(l=>{
+    if(!bySite[l.site]) bySite[l.site]={days:0,w:0,c:0};
+    bySite[l.site].days++;
+    bySite[l.site].w+=l.workers.reduce((a,w)=>a+w.cnt,0);
+    bySite[l.site].c+=l.workers.reduce((a,w)=>a+(w.cnt*(w.price||0)),0);
+  });
+  el.innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val">${td}</div><div class="stat-lbl">총 작업일수</div></div>
+      <div class="stat-card"><div class="stat-val">${tw}</div><div class="stat-lbl">총 투입인원</div></div>
+      <div class="stat-card" style="grid-column:1/-1"><div class="stat-val" style="font-size:20px">${tc.toLocaleString()}</div><div class="stat-lbl">총 노무비 (원)</div></div>
+    </div>
+    <div class="card"><div class="card-title">📍 현장별 현황</div>
+      ${Object.entries(bySite).map(([s,d])=>`
+        <div style="padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">${s}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge b-blue">📅 ${d.days}일</span>
+            <span class="badge b-green">👷 ${d.w}명</span>
+            <span class="badge b-yellow">💰 ${d.c.toLocaleString()}원</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── 엑셀 ──
+function exportOne(){if(curIdx<0)return;doExcel([logs[curIdx]],`작업일보_${logs[curIdx].date}`);}
+function exportAll(){if(!logs.length){toast('저장된 일보 없음',true);return;}doExcel(logs,`작업일보_전체_${new Date().toISOString().slice(0,10)}`);}
+function doExcel(data,fn){
+  const wb=XLSX.utils.book_new();
+  const s1=[['날짜','요일','공사명','발주처','현장대리인','오전날씨','오후날씨','최저기온','최고기온','총인원','노무비','진행률%']];
+  data.forEach(l=>{
+    const n=l.workers.reduce((s,w)=>s+w.cnt,0),c=l.workers.reduce((s,w)=>s+(w.cnt*(w.price||0)),0);
+    s1.push([l.date,l.day||'',l.site,l.client||'',l.manager||'',l.wAm||'',l.wPm||'',l.tLo||'',l.tHi||'',n,c,l.prog||0]);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),'요약');
+  const s2=[['날짜','공사명','직종','이름','인원','단가','금액']];
+  data.forEach(l=>l.workers.forEach(w=>s2.push([l.date,l.site,w.job||'',w.name||'',w.cnt,w.price||0,w.cnt*(w.price||0)])));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'인원상세');
+  const s3=[['날짜','공사명','작업내용','익일계획','특이사항','안전사항']];
+  data.forEach(l=>s3.push([l.date,l.site,l.work||'',l.next||'',l.spec||'',l.safe||'']));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'작업내용');
+  XLSX.writeFile(wb,fn+'.xlsx');toast('📥 엑셀 저장 완료!');
+}
+
+// ── JSON ──
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(logs,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`작업일보_백업_${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('💾 백업 저장 완료!');
+}
+function importJSON(e){const f=e.target.files[0];if(f)readJSON(f);e.target.value='';}
+function readJSON(file){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const imported=JSON.parse(ev.target.result);
+      if(!Array.isArray(imported)){toast('올바른 백업 파일이 아닙니다',true);return;}
+      const keys=new Set(logs.map(l=>`${l.date}_${l.site}`));
+      const newOnes=imported.filter(l=>!keys.has(`${l.date}_${l.site}`));
+      if(!newOnes.length){toast('새로운 데이터가 없습니다');return;}
+      logs=[...logs,...newOnes].sort((a,b)=>b.date.localeCompare(a.date));
+      localStorage.setItem('wl_logs',JSON.stringify(logs));
+      buildChips();buildSiteSelect();renderList();renderStats();
+      toast(`✅ ${newOnes.length}건 통합 완료!`);
+    }catch{toast('파일 읽기 오류',true);}
+  };
+  reader.readAsText(file);
+}
+function resetAll(){
+  if(!confirm('모든 데이터를 삭제합니다.\n백업 후 진행하세요!\n\n계속하시겠습니까?'))return;
+  logs=[];localStorage.removeItem('wl_logs');
+  buildChips();buildSiteSelect();renderList();renderStats();toast('초기화 완료');
+}
+function clearForm(){
+  if(!confirm('초기화하시겠습니까?'))return;
+  ['iSite','iClient','iManager','iWork','iNext','iSpec','iSafe','iProg','iTlo','iThi'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.w-item').forEach(x=>x.classList.remove('sel'));
+  document.getElementById('wList').innerHTML='';document.getElementById('eList').innerHTML='';
+  wc=0;ec=0;wAm='';wPm='';addW('통신공','',1,220000);addE();calcW();
+}
+function toast(msg,err=false){
+  const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' err':'');
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+}
+function fmt(d){const dt=new Date(d);return`${dt.getFullYear()}년 ${dt.getMonth()+1}월 ${dt.getDate()}일`;}
+</script>
+</body>
+</html>
